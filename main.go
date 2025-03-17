@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/csv"
+	"encoding/json"
 	"io"
 	"log"
 	"os"
@@ -29,7 +30,7 @@ func main() {
 	app.Post("/create-collection", createCollection)
 
 	// Route to add a document
-	app.Post("/add-document", addDocumentsFromCSV)
+	app.Post("/add-document", addDocumentsFromJSON)
 
 	// Route to search documents
 	app.Get("/search", searchDocuments)
@@ -118,6 +119,46 @@ func addDocumentsFromCSV(c *fiber.Ctx) error {
 
 	log.Println("Successfully inserted", len(documents), "documents")
 	return c.JSON(fiber.Map{"message": "Documents inserted successfully", "count": len(documents)})
+}
+
+func addDocumentsFromJSON(c *fiber.Ctx) error {
+	// Open JSON file
+	file, err := os.Open("books_valid.json")
+	if err != nil {
+		log.Println("❌ Error opening JSON file:", err)
+		return err
+	}
+	defer file.Close()
+
+	// Parse JSON into a slice of maps
+	var documents []map[string]interface{}
+	decoder := json.NewDecoder(file)
+	err = decoder.Decode(&documents)
+	if err != nil {
+		log.Println("Error decoding JSON file:", err)
+		return err
+	}
+
+	// Convert documents to []interface{}
+	docsInterface := make([]interface{}, len(documents))
+	for i, doc := range documents {
+		docsInterface[i] = doc
+	}
+
+	// Bulk insert documents
+	_, err = client.Collection("books").
+		Documents().
+		Import(context.Background(), docsInterface, &api.ImportDocumentsParams{
+			Action: (*api.IndexAction)(pointer.String("create")),
+		})
+
+	if err != nil {
+		log.Println("Error importing documents:", err)
+		return err
+	}
+
+	log.Println("Documents added successfully!")
+	return nil
 }
 
 func searchDocuments(c *fiber.Ctx) error {
