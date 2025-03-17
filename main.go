@@ -158,7 +158,7 @@ func addDocumentsFromJSON(c *fiber.Ctx) error {
 	}
 
 	log.Println("Documents added successfully!")
-	return nil
+	return c.JSON(fiber.Map{"message": "Documents inserted successfully", "count": len(documents)})
 }
 
 func searchDocuments(c *fiber.Ctx) error {
